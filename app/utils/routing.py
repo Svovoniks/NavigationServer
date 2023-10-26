@@ -30,4 +30,4 @@ def get_route(graph, start, dest, k=1):
     p1 = ox.nearest_nodes(graph, *start)
     p2 = ox.nearest_nodes(graph, *dest)
 
-    return ox.shortest_path(graph, p1, p2)
+    return list(map(lambda a: graph.nodes.data()[a], ox.shortest_path(graph, p1, p2, cpus=4)))

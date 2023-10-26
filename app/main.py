@@ -13,6 +13,7 @@ async def get_route(start_lat: float, start_lon: float, dest_lat: float, dest_lo
     graph, k = routing.get_graph(start, dest)
 
     route = routing.get_route(graph, start, dest)
+
     return {'route': route}
 
 
