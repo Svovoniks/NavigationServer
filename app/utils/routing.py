@@ -1,33 +1,30 @@
-import osmnx as ox
+import psycopg2 as ps
+import os
 
+closest_query = """SELECT id FROM result_2po_4pgr
+    ORDER BY ST_Distance(geom_way, ST_SetSRID(ST_MakePoint({}, {}), 4326))
+    LIMIT 1;"""
 
-def get_base_graph(start, dest, k=0, incr=0.1, network_type='bike'):
-    graph = None
-    try:
-        graph = ox.graph_from_bbox(
-            max(dest[1], start[1]) + incr * k,
-            min(dest[1], start[1]) - incr * k,
-            max(dest[0], start[0]) + incr * k,
-            min(dest[0], start[0]) - incr * k,
-            network_type=network_type)
-    except Exception as e:
-        pass
+route_a_star = """SELECT r.x1, r.y1, r.x2, r.y2 FROM result_2po_4pgr AS r JOIN pgr_astar(
+    'SELECT id, source, target, cost, reverse_cost, x1, y1, x2, y2 FROM result_2po_4pgr',
+    {}, {},
+    directed := true
+) AS p ON r.id = p.node;"""
 
-    return graph
+rouring_DB_name = os.environ['ROUTING_DB_NAME']
+DB_user_name = os.environ['POSTGRES_USER']
+DB_password = os.environ['POSTGRES_PASSWORD']
+DB_host = os.environ['POSTGRES_HOST']
+DB_port = os.environ['POSTGRES_PORT']
 
+def get_route_a_star(start, dest):
+    conn = ps.connect(f"dbname='{rouring_DB_name}' user='{DB_user_name}' host='{DB_host}' password='{DB_password}' port='{DB_port}'")
+    with conn.cursor() as cursor:
+        cursor.execute(closest_query.format(*start))
+        point1 = cursor.fetchone()[0]
 
-def get_graph(start, dest, k=0, incr=0.1, network_type='bike'):
-    graph = get_base_graph(start, dest)
+        cursor.execute(closest_query.format(*dest))
+        point2 = cursor.fetchone()[0]
 
-    while graph is None:
-        graph = get_base_graph(start, dest, k=k, incr=0.1, network_type=network_type)
-        k += 1
-
-    return graph, k
-
-
-def get_route(graph, start, dest, k=1):
-    p1 = ox.nearest_nodes(graph, *start)
-    p2 = ox.nearest_nodes(graph, *dest)
-
-    return list(map(lambda a: graph.nodes.data()[a], ox.shortest_path(graph, p1, p2, cpus=4)))
+        cursor.execute(route_a_star.format(point1, point2))
+        return cursor.fetchall()

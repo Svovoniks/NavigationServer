@@ -10,9 +10,7 @@ async def get_route(start_lat: float, start_lon: float, dest_lat: float, dest_lo
     start = (start_lat, start_lon)
     dest = (dest_lat, dest_lon)
 
-    graph, k = routing.get_graph(start, dest)
-
-    route = routing.get_route(graph, start, dest)
+    route = routing.get_route_a_star(start, dest)
 
     return {'route': route}
 
