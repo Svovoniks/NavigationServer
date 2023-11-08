@@ -1,0 +1,4 @@
+
+
+class Trail:
+    pass

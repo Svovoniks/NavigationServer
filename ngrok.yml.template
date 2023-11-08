@@ -1,0 +1,8 @@
+version: "2"
+authtoken: <token>
+tunnels:
+  website:
+    addr: <server.address>
+    inspect: false
+    proto: http
+    domain: <domain>
