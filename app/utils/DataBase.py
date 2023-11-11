@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlalchemy import insert, delete, select
 from app.utils.trail import Trail
 from app.utils.user import User
+from sqlalchemy.orm.exc import NoResultFound
 
 user_metadata = MetaData(schema='user')
 trail_metadata = MetaData(schema='trail')
@@ -39,9 +40,10 @@ trail_user_table = Table(
     Column("user_id", Integer),
 )
 
+
 class DataBase:
     engine: Engine
-    
+
     def __init__(self) -> None:
         print("jey")
         self.engine = self.connect()
@@ -53,7 +55,7 @@ class DataBase:
         db_user = os.environ['POSTGRES_USER']
         db_password = os.environ['POSTGRES_PASSWORD']
         return create_engine(f'postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}')
-    
+
     def execute(self, stmnt: Executable) -> CursorResult[Any]:
         with self.engine.connect() as conn:
             result = conn.execute(stmnt)
@@ -61,69 +63,92 @@ class DataBase:
 
             return result
 
+
 class Trail_DataBase(DataBase):
     def __init__(self) -> None:
         super(Trail_DataBase, self).__init__()
-    
+
     def add_trail(self, trail: Trail) -> None:
-        # TODo
-        pass
-    
+        statement = insert(trail_table).values(x=trail.x,
+                                               y=trail.y,
+                                               point_index=trail.point_index)
+        print(self.execute(statement).first())
+
     def remove_trail(self, trail: Trail) -> None:
-        # TODo
-        pass
-    
+        statement = delete(trail_table).where(trail_table.c.id == trail.id)  # type: ignore
+        self.execute(statement)
+        statement = delete(trail_user_table).where(trail_user_table.c.trail_id == trail.id)  # type: ignore
+        self.execute(statement)
+
     def get_trail_by_id(self, trail_id: int) -> Trail:
-        # TODO
-        return Trail()
-    
+        statement = select(trail_table.c.id,
+                           trail_table.c.x,
+                           trail_table.c.y,
+                           trail_table.c.point_index, ).where(trail_table.c.id == trail_id)
+        result = self.execute(statement).all()
+        try:
+            print(result)
+            return Trail(result[0].id, result[0].x, result[0].y, result[0].point_index)
+        except NoResultFound:
+            raise ValueError(f"Trail with ID {trail_id} not found.")
+
     def get_user_trails(self, user: User) -> List[Trail]:
-        # TODO
-        return [Trail(),]
+        statement = select(trail_table.c.id,
+                           trail_table.c.x,
+                           trail_table.c.y,
+                           trail_table.c.point_index, ).where(trail_user_table.c.trail_id == trail_table.c.id) \
+            .where(trail_user_table.c.user_id == user.id)
+        result = self.execute(statement).all()
+        trails = [
+            Trail(trail_id=row.id, x=row.x, y=row.y, point_index=row.point_index)
+            for row in result]
+        return trails
+
 
 class User_DataBase(DataBase):
     def __init__(self) -> None:
         super(User_DataBase, self).__init__()
-    
+
     def add_user(self, user: User) -> None:
-        statement = insert(user_table).values(email=user.email, 
-                                  username=user.name, 
-                                  password_hash=user.password_hash)
+        statement = insert(user_table).values(email=user.email,
+                                              username=user.name,
+                                              password_hash=user.password_hash)
         print(self.execute(statement).first())
-    
+
     def remove_user(self, user: User) -> None:
-        statement = delete(user_table).where(user_table.c.id == user.id) # type: ignore
+        statement = delete(user_table).where(user_table.c.id == user.id)  # type: ignore
         self.execute(statement)
-        statement = delete(session_table).where(session_table.c.user_id == user.id) # type: ignore
+        statement = delete(session_table).where(session_table.c.user_id == user.id)  # type: ignore
         self.execute(statement)
         statement = delete(trail_table).where(trail_user_table.c.trail_id == trail_table.c.id) \
-                                        .where(trail_user_table.c.user_id == user.id) # type: ignore
+            .where(trail_user_table.c.user_id == user.id)  # type: ignore
         self.execute(statement)
-        statement = delete(trail_user_table).where(trail_user_table.c.user_id == user.id) # type: ignore
+        statement = delete(trail_user_table).where(trail_user_table.c.user_id == user.id)  # type: ignore
         self.execute(statement)
-        
+
     def add_session_key(self, user: User) -> None:
         statement = insert(session_table).values(user_id=user.user_id,
                                                  session_key=user.session_key)
         self.execute(statement)
-    
+
     def remove_session_key(self, user: User) -> None:
-        statement = delete(session_table).where(session_table.c.user_id == user.id) # type: ignore
+        statement = delete(session_table).where(session_table.c.user_id == user.id)  # type: ignore
         self.execute(statement)
 
     def validate_session_key(self, session_key: str) -> bool:
         statement = select(session_table).where(session_table.c.session_key == session_key)
         result = self.execute(statement)
         return len(result.all()) != 0
-    
+
     '''
     use with valid session key
     '''
+
     def get_user_by_session(self, session_key: str) -> User:
         statement = select(user_table.c.id,
                            user_table.c.email,
                            user_table.c.username,
-                           user_table.c.password_hash,)#.where(session_table.c.session_key == session_key).where(session_table.c.user_id == user_table.c.id)
+                           user_table.c.password_hash, )  # .where(session_table.c.session_key == session_key).where(session_table.c.user_id == user_table.c.id)
         result = self.execute(statement).all()
         print(result)
 
@@ -137,4 +162,3 @@ def test():
     # db.add_session_key(user)
     print(db.get_user_by_session(User.generate_session_key()))
     print(db.validate_session_key(User.generate_session_key()))
-
