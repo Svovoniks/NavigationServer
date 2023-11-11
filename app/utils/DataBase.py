@@ -1,11 +1,12 @@
 import os
 from typing import Any, List
-from sqlalchemy import CursorResult, Engine, Executable, Identity, MetaData, create_engine
+from sqlalchemy import CursorResult, Engine, Executable, MetaData, create_engine
 from sqlalchemy import Table, Column, Integer, String
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlalchemy import insert, delete, select
 from app.utils.trail import Trail
 from app.utils.user import User
+
 
 user_metadata = MetaData(schema='user')
 trail_metadata = MetaData(schema='trail')
@@ -27,9 +28,9 @@ session_table = Table(
 trail_table = Table(
     "trail_point",
     trail_metadata,
-    Column("id", Integer, primary_key=True),
-    Column("x", DOUBLE_PRECISION),
-    Column("y", DOUBLE_PRECISION),
+    Column("id", Integer, primary_key=True), 
+    Column("x", DOUBLE_PRECISION), # type: ignore
+    Column("y", DOUBLE_PRECISION), # type: ignore
     Column("point_index", Integer),
 )
 trail_user_table = Table(
@@ -43,7 +44,6 @@ class DataBase:
     engine: Engine
     
     def __init__(self) -> None:
-        print("jey")
         self.engine = self.connect()
 
     def connect(self) -> Engine:
@@ -85,11 +85,22 @@ class User_DataBase(DataBase):
     def __init__(self) -> None:
         super(User_DataBase, self).__init__()
     
-    def add_user(self, user: User) -> None:
+    def username_available(self, user: User) -> bool:
+        statement = select(user_table).where(user_table.c.username == user.name)
+        r = self.execute(statement).all()
+        return len(r) == 0
+        
+    '''
+    use with unique usernames only 
+    '''        
+    def add_user(self, user: User) -> int:
         statement = insert(user_table).values(email=user.email, 
                                   username=user.name, 
                                   password_hash=user.password_hash)
-        print(self.execute(statement).first())
+        self.execute(statement)
+
+        return self.get_user_by_name(user.name).user_id # type: ignore
+
     
     def remove_user(self, user: User) -> None:
         statement = delete(user_table).where(user_table.c.id == user.id) # type: ignore
@@ -102,19 +113,22 @@ class User_DataBase(DataBase):
         statement = delete(trail_user_table).where(trail_user_table.c.user_id == user.id) # type: ignore
         self.execute(statement)
         
+    def session_key_available(self, key: str) -> bool:
+        statement = select(session_table).where(session_table.c.session_key == key)
+        r = self.execute(statement).all()
+        return len(r) == 0
+    
+    '''
+    use with unique session keys only 
+    '''       
     def add_session_key(self, user: User) -> None:
         statement = insert(session_table).values(user_id=user.user_id,
                                                  session_key=user.session_key)
         self.execute(statement)
     
-    def remove_session_key(self, user: User) -> None:
-        statement = delete(session_table).where(session_table.c.user_id == user.id) # type: ignore
+    def remove_session_key(self, key: str) -> None:
+        statement = delete(session_table).where(session_table.c.session_key == key) # type: ignore
         self.execute(statement)
-
-    def validate_session_key(self, session_key: str) -> bool:
-        statement = select(session_table).where(session_table.c.session_key == session_key)
-        result = self.execute(statement)
-        return len(result.all()) != 0
     
     '''
     use with valid session key
@@ -123,18 +137,15 @@ class User_DataBase(DataBase):
         statement = select(user_table.c.id,
                            user_table.c.email,
                            user_table.c.username,
-                           user_table.c.password_hash,)#.where(session_table.c.session_key == session_key).where(session_table.c.user_id == user_table.c.id)
-        result = self.execute(statement).all()
-        print(result)
+                           user_table.c.password_hash).where(session_table.c.session_key == session_key).where(session_table.c.user_id == user_table.c.id)
+        r = self.execute(statement).first()
 
-        # return User(result[0], result[1], result[2], result[3]) # type: ignore
+        return User(r[0], r[1], r[2], r[3], session_key) # type: ignore
 
-
-def test():
-    user = User("lol", "lol.com", "some_hash", User.generate_session_key())
-    db = User_DataBase()
-    db.add_user(user)
-    # db.add_session_key(user)
-    print(db.get_user_by_session(User.generate_session_key()))
-    print(db.validate_session_key(User.generate_session_key()))
-
+    def get_user_by_name(self, username: str):
+        statement = select(user_table.c.id,
+                           user_table.c.email,
+                           user_table.c.username,
+                           user_table.c.password_hash).where(user_table.c.username == username)
+        r = self.execute(statement).first()
+        return User(r[0], r[1], r[2], r[3], None) # type: ignore

@@ -80,10 +80,6 @@ ALTER TABLE ONLY trail.user_trail
 ALTER TABLE ONLY "user".user_data
     ADD CONSTRAINT user_ak_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY "user".user_session
-    ADD CONSTRAINT user_session_pkey PRIMARY KEY (user_id);
-
-
 ALTER TABLE ONLY trail.trail_point
     ADD CONSTRAINT trail_point_id_fkey FOREIGN KEY (id) REFERENCES trail.user_trail(trail_id);
 
