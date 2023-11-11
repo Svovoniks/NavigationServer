@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlalchemy import insert, delete, select
 from app.utils.trail import Trail
 from app.utils.user import User
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound
 
 user_metadata = MetaData(schema='user')
 trail_metadata = MetaData(schema='trail')
@@ -108,8 +108,8 @@ class User_DataBase(DataBase):
     def __init__(self) -> None:
         super(User_DataBase, self).__init__()
     
-    def username_available(self, user: User) -> bool:
-        statement = select(user_table).where(user_table.c.username == user.name)
+    def username_available(self, username: str) -> bool:
+        statement = select(user_table).where(user_table.c.username == username)
         r = self.execute(statement).all()
         return len(r) == 0
         
@@ -154,9 +154,8 @@ class User_DataBase(DataBase):
         self.execute(statement)
     
     '''
-    use with valid session key
+    use with valid session keys only
     '''
-
     def get_user_by_session(self, session_key: str) -> User:
         statement = select(user_table.c.id,
                            user_table.c.email,
@@ -165,7 +164,10 @@ class User_DataBase(DataBase):
         r = self.execute(statement).first()
 
         return User(r[0], r[1], r[2], r[3], session_key) # type: ignore
-
+    
+    '''
+    use with valid usernames only
+    '''
     def get_user_by_name(self, username: str):
         statement = select(user_table.c.id,
                            user_table.c.email,

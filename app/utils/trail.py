@@ -1,3 +1,5 @@
+import app.utils.DataBase as DB
+
 class Trail:
     trail_id: int
     x: int

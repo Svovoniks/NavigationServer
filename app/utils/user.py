@@ -5,6 +5,8 @@ import app.utils.DataBase as DB
 from app.utils.data_models import LoginJSON, RegisterJSON, SessionJSON, UserJSON
 
 from app.utils.trail import Trail
+
+
 class User:
     user_id: int | None
     name: str
@@ -58,6 +60,9 @@ class User:
 
     @staticmethod
     def authenticate(login: LoginJSON) -> UserJSON:
+        if DB.User_DataBase().username_available(login.username):
+            return UserJSON(authenticated=False)
+        
         user = DB.User_DataBase().get_user_by_name(login.username)
         if not user.password_hash == User.get_password_hash(login.password):
             return UserJSON(authenticated=False)
@@ -68,12 +73,20 @@ class User:
     @staticmethod
     def register(register: RegisterJSON) -> UserJSON:
         user = User.user_from_registerJSON(register)
-        if not DB.User_DataBase().username_available(user):
+        if not DB.User_DataBase().username_available(user.name):
             return UserJSON(authenticated=False)
         
         user.add_user()
         user.register_new_session()
         return user.userJSON()
+    
+    @staticmethod
+    def login(session: SessionJSON) -> UserJSON:
+        if DB.User_DataBase().session_key_available(session.session_key):
+            return UserJSON(authenticated=False)
+        
+        return DB.User_DataBase().get_user_by_session(session.session_key).userJSON()
+        
     
 
 
