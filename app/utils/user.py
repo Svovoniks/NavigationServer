@@ -29,6 +29,7 @@ class UserJSON(BaseModel):
     
     
 class User:
+    user_id: int
     name: str
     email: str
     password_hash: str
@@ -50,3 +51,8 @@ class User:
 
     def userJSON(self) -> UserJSON:
         return UserJSON(name=self.name, email=self.email)
+    
+    @staticmethod
+    def generate_session_key() -> str:
+        return '5e85edc4-7078-d214-e773-f8caae16fe6c'
+        

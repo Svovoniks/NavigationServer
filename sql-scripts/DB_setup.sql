@@ -49,17 +49,17 @@ CREATE TABLE trail.trail_point (
 ALTER TABLE trail.trail_point OWNER TO postgres;
 
 CREATE TABLE trail.user_trail (
-    trail_id integer NOT NULL,
+    trail_id SERIAL NOT NULL,
     user_id integer NOT NULL
 );
 
 ALTER TABLE trail.user_trail OWNER TO postgres;
 
 CREATE TABLE "user".user_data (
-    id integer NOT NULL,
+    id SERIAL NOT NULL,
     email text NOT NULL,
     username text NOT NULL,
-    password text NOT NULL
+    password_hash text NOT NULL
 );
 
 ALTER TABLE "user".user_data OWNER TO postgres;

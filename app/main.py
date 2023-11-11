@@ -1,11 +1,14 @@
 from app.utils import routing
-from app.utils.DataBase import User_DataBase
+from app.utils.DataBase import User_DataBase, test
 from app.utils.user import LoginJSON, RegisterJSON, SessionJSON, TrailJSON
 from fastapi import FastAPI
+import psycopg2
 
 app = FastAPI()
 
 
+# test()
+# exit()
 @app.get("/get-route/{startLat}/{startLon}/{destLat}/{destLon}")
 async def get_route(start_lat: float, start_lon: float, dest_lat: float, dest_lon: float):
     start = (start_lat, start_lon)
@@ -30,7 +33,8 @@ async def add_trail(key_json: TrailJSON):
 
 @app.post("/get-user/")
 async def get_user(key_json: SessionJSON):
-    return User_DataBase().get_user_by_session(key_json.session_key)
+    test()
+    return ""
 
 
 @app.post("/login/")
