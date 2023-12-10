@@ -81,11 +81,23 @@ class User:
         return user.userJSON()
     
     @staticmethod
+    def get_user_by_session_key(key: str):
+        if DB.User_DataBase().session_key_available(key):
+            return None
+        
+        return DB.User_DataBase().get_user_by_session(key)
+    
+    @staticmethod
+    def get_user_by_session(session: SessionJSON):
+        return User.get_user_by_session_key(session.session_key)
+        
+    @staticmethod
     def login(session: SessionJSON) -> UserJSON:
-        if DB.User_DataBase().session_key_available(session.session_key):
+        user = User.get_user_by_session(session)
+        if user == None:
             return UserJSON(authenticated=False)
         
-        return DB.User_DataBase().get_user_by_session(session.session_key).userJSON()
+        return user.userJSON()
         
     
 

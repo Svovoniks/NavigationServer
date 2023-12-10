@@ -4,9 +4,9 @@ from sqlalchemy import CursorResult, Engine, Executable, MetaData, create_engine
 from sqlalchemy import Table, Column, Integer, String
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlalchemy import insert, delete, select
+from app.utils.data_models import TrailIDJSON
 from app.utils.trail import Trail
 from app.utils.user import User
-from sqlalchemy.exc import NoResultFound
 
 user_metadata = MetaData(schema='user')
 trail_metadata = MetaData(schema='trail')
@@ -37,6 +37,7 @@ trail_user_table = Table(
     "user_trail",
     trail_metadata,
     Column("trail_id", Integer, primary_key=True),
+    Column("trail_name", String),
     Column("user_id", Integer),
 )
 
@@ -68,40 +69,76 @@ class Trail_DataBase(DataBase):
         super(Trail_DataBase, self).__init__()
 
     def add_trail(self, trail: Trail) -> None:
-        statement = insert(trail_table).values(x=trail.x,
-                                               y=trail.y,
-                                               point_index=trail.point_index)
-        print(self.execute(statement).first())
+        statement = insert(trail_user_table).values(
+            trail_name = trail.trail_name,
+            user_id = trail.user_id,
+        )
+        trail.trail_id = self.execute(statement).inserted_primary_key[0] # type: ignore
+        
+        trail_insert_list = []
+        for idx, i in enumerate(trail.points):
+            trail_insert_list.append({       # type: ignore
+                'id': trail.trail_id,  
+                'x': i['x'],
+                'y': i['y'],
+                'point_index': idx
+            })
+        
+        statement = insert(trail_table).values(trail_insert_list)
+        self.execute(statement)
+        
+        
+    def remove_trail_by_id(self, trail_id: int) -> None:
+        statement = delete(trail_table).where(trail_table.c.id == trail_id)  # type: ignore
+        self.execute(statement)
+        statement = delete(trail_user_table).where(trail_user_table.c.trail_id == trail_id)  # type: ignore
+        self.execute(statement)
 
     def remove_trail(self, trail: Trail) -> None:
-        statement = delete(trail_table).where(trail_table.c.id == trail.id)  # type: ignore
-        self.execute(statement)
-        statement = delete(trail_user_table).where(trail_user_table.c.trail_id == trail.id)  # type: ignore
-        self.execute(statement)
-
-    def get_trail_by_id(self, trail_id: int) -> Trail:
-        statement = select(trail_table.c.id,
-                           trail_table.c.x,
-                           trail_table.c.y,
-                           trail_table.c.point_index, ).where(trail_table.c.id == trail_id)
-        result = self.execute(statement).all()
-        try:
-            print(result)
-            return Trail(result[0].id, result[0].x, result[0].y, result[0].point_index)
-        except NoResultFound:
-            raise ValueError(f"Trail with ID {trail_id} not found.")
+        self.remove_trail_by_id(trail.trail_id)
+        
+    def verify_trail_owner(self, trail_id_json: TrailIDJSON) -> bool:
+        user = User_DataBase().get_user_by_session(trail_id_json.session_key)
+        statement = select(
+            trail_user_table.c.user_id,
+        ).where(trail_user_table.c.trail_id == trail_id_json.trail_id).where(trail_user_table.c.user_id == user.user_id)
+        
+        return len(self.execute(statement).all()) != 0
+        
+    def get_trail_points_by_trail_id(self, trail_id: int) -> List[dict[str, float]]:
+        statement = select(
+            trail_table.c.x,
+            trail_table.c.y,
+            trail_table.c.point_index, 
+        ).where(trail_table.c.id == trail_id)
+        
+        points = []
+        
+        for i in sorted(self.execute(statement).all(), key=lambda a: a[2]):
+            points.append({'x': i[0], 'y': i[1]}) # type: ignore
+        
+        return points # type: ignore
+        
 
     def get_user_trails(self, user: User) -> List[Trail]:
-        statement = select(trail_table.c.id,
-                           trail_table.c.x,
-                           trail_table.c.y,
-                           trail_table.c.point_index, ).where(trail_user_table.c.trail_id == trail_table.c.id) \
-            .where(trail_user_table.c.user_id == user.id)
-        result = self.execute(statement).all()
-        trails = [
-            Trail(trail_id=row.id, x=row.x, y=row.y, point_index=row.point_index)
-            for row in result]
-        return trails
+        statement = select(
+            trail_user_table.c.trail_id,
+            trail_user_table.c.trail_name,
+            trail_user_table.c.user_id,
+        ).where(trail_user_table.c.user_id == user.user_id)
+        
+        trails = []
+        
+        for i in self.execute(statement).all():
+            trail = Trail(
+                i[0],
+                user.user_id,      # type: ignore
+                i[1],
+                self.get_trail_points_by_trail_id(i[0])
+            )
+            trails.append(trail)   # type: ignore
+        
+        return trails              # type: ignore
 
 
 class User_DataBase(DataBase):
@@ -157,10 +194,12 @@ class User_DataBase(DataBase):
     use with valid session keys only
     '''
     def get_user_by_session(self, session_key: str) -> User:
-        statement = select(user_table.c.id,
-                           user_table.c.email,
-                           user_table.c.username,
-                           user_table.c.password_hash).where(session_table.c.session_key == session_key).where(session_table.c.user_id == user_table.c.id)
+        statement = select(
+            user_table.c.id,
+            user_table.c.email,
+            user_table.c.username,
+            user_table.c.password_hash).where(session_table.c.session_key == session_key).where(session_table.c.user_id == user_table.c.id
+        )
         r = self.execute(statement).first()
 
         return User(r[0], r[1], r[2], r[3], session_key) # type: ignore

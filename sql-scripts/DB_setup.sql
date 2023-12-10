@@ -50,6 +50,7 @@ ALTER TABLE trail.trail_point OWNER TO postgres;
 
 CREATE TABLE trail.user_trail (
     trail_id SERIAL NOT NULL,
+    trail_name text NOT NULL,
     user_id integer NOT NULL
 );
 
@@ -70,9 +71,6 @@ CREATE TABLE "user".user_session (
 );
 
 ALTER TABLE "user".user_session OWNER TO postgres;
-
-ALTER TABLE ONLY trail.trail_point
-    ADD CONSTRAINT trail_point_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY trail.user_trail
     ADD CONSTRAINT user_trail_pkey PRIMARY KEY (trail_id);

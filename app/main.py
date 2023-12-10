@@ -11,29 +11,27 @@ from app.utils.trail import Trail
 
 app = FastAPI()
 
-@app.get("/get-route/{startLat}/{startLon}/{destLat}/{destLon}")
+@app.get("/get-route/")
 async def get_route(start_lat: float,
                     start_lon: float, 
                     dest_lat: float, 
                     dest_lon: float) -> Dict[Any, Any]:
     start = (start_lat, start_lon)
     dest = (dest_lat, dest_lon)
-
+    
     route = routing.get_route(start, dest)
-
+    
     return {'route': route}
-
+    
 
 @app.post("/get-trails/")
-async def get_trails(key_json: SessionJSON):
-    # TODO
-    pass
+async def get_trails(session: SessionJSON) -> TrailJSON:
+    return Trail.get_user_trails(session)
 
 
 @app.post("/add-trail/")
-async def add_trail(key_json: TrailJSON):
-    # TODO
-    pass
+async def add_trail(trail_json: TrailJSON) -> TrailJSON:
+    return Trail.add_trail(trail_json)
 
 
 @app.post("/get-user/")
@@ -42,11 +40,11 @@ async def get_user(session_json: SessionJSON) -> UserJSON:
 
 
 @app.post("/login/")
-async def login(login_json: LoginJSON):
+async def login(login_json: LoginJSON) -> UserJSON:
     return User.authenticate(login_json)
 
 
 @app.post("/register/")
-async def register(register_json: RegisterJSON):
+async def register(register_json: RegisterJSON) -> UserJSON:
     return User.register(register_json)
 

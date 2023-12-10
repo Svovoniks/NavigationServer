@@ -14,8 +14,13 @@ class SessionJSON(BaseModel):
     session_key: str
 
 class TrailJSON(BaseModel):
-    key: str
-    trail: List[Any]
+    authenticated: bool = True
+    session_key: str = ''
+    trails: List[dict[str, Any]] = [] # list of {'id': id, 'name': name, points: [{'x': x, 'y': y}]}
+    
+class TrailIDJSON(BaseModel):
+    session_key: str = ''
+    trail_id: int
 
 class UserJSON(BaseModel):
     authenticated: bool = True
