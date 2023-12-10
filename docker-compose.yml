@@ -1,0 +1,57 @@
+version: '3.6'
+
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    command:
+      - "start"
+      - "--all"
+      - "--config"
+      - "/etc/ngrok.yml"
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    ports:
+      - '4040:4040'
+
+  mainServer:
+    image: python:3.10
+    container_name: mainServer_local
+    volumes:
+      - ./requirements.txt:/code/requirements.txt
+      - ./app:/code/app
+    ports:
+      - '8000:8000'
+    env_file:
+      - .env
+    depends_on:
+      - routingServer
+      - dataBase
+    build: 
+      context: .
+      dockerfile: Server-Dockerfile
+
+  routingServer:
+    image: israelhikingmap/graphhopper
+    container_name: routing_local
+    volumes:
+      - ./graphhopper/config.yml:/graphhopper/config/config.yml
+      - ./graphhopper/map.pbf:/graphhopper/data/map.osm.pbf
+    environment:
+      - JAVA_OPTS=-Xmx6g 
+    ports:
+      - '8989:8989'
+    command: --host 0.0.0.0 --config /graphhopper/config/config.yml -i /graphhopper/data/map.osm.pbf
+
+  dataBase:
+    image: postgres
+    restart: always
+    container_name: dataBase
+    env_file:
+    - .env
+    ports:
+      - '5432:5432'
+    build: 
+      context: .
+      dockerfile: DB-Dockerfile
+

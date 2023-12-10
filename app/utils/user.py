@@ -1,50 +1,104 @@
+import secrets
 from hashlib import sha256
-from pydantic import BaseModel
+from typing import List
+import app.utils.DataBase as DB
+from app.utils.data_models import LoginJSON, RegisterJSON, SessionJSON, UserJSON
+
+from app.utils.trail import Trail
 
 
 class User:
-    def __init__(self, name, email, password_hash, trails, key):
+    user_id: int | None
+    name: str
+    email: str
+    password_hash: str
+    trails: List[Trail]
+    session_key: str | None
+    
+    def __init__(self, 
+                user_id: int | None,
+                name: str,
+                email: str,
+                password_hash: str,
+                session_key: str | None) -> None:
+        self.user_id = user_id
         self.name = name
         self.email = email
         self.password_hash = password_hash
-        self.trails = trails
-        self.key = key
+        self.session_key = session_key
 
-    def authenticate(self, password):
-        return self.password_hash == sha256(password).hexdigest()
-
-    def add_user(self):
-        # TODO
-        pass
-
-    def get_user(self):
-        return {
-            'name': self.name,
-            'email': self.email,
-            'trails': self.trails
-        }
+    def add_user(self) -> None:
+        self.user_id = DB.User_DataBase().add_user(self)
 
 
-class LoginJSON(BaseModel):
-    username: str
-    password: str
+    def register_new_session(self) -> SessionJSON:
+        key = User.generate_session_key()
+        self.session_key = key
+        DB.User_DataBase().add_session_key(self)
+        return SessionJSON(session_key=key)
+
+    def userJSON(self) -> UserJSON:
+        return UserJSON(name=self.name, 
+                        email=self.email, 
+                        session_key=self.session_key) # type: ignore
+    
+    @staticmethod
+    def generate_session_key():
+        return secrets.token_urlsafe(30)
+
+    @staticmethod
+    def get_password_hash(password: str):
+        return sha256(password.encode('ascii')).hexdigest()
+    
+    @staticmethod
+    def user_from_registerJSON(register: RegisterJSON) -> 'User':
+        return User(None, 
+                    register.username, 
+                    register.email,
+                    User.get_password_hash(register.password),
+                    None)
+
+    @staticmethod
+    def authenticate(login: LoginJSON) -> UserJSON:
+        if DB.User_DataBase().username_available(login.username):
+            return UserJSON(authenticated=False)
+        
+        user = DB.User_DataBase().get_user_by_name(login.username)
+        if not user.password_hash == User.get_password_hash(login.password):
+            return UserJSON(authenticated=False)
+        
+        user.register_new_session()
+        return user.userJSON()
+    
+    @staticmethod
+    def register(register: RegisterJSON) -> UserJSON:
+        user = User.user_from_registerJSON(register)
+        if not DB.User_DataBase().username_available(user.name):
+            return UserJSON(authenticated=False)
+        
+        user.add_user()
+        user.register_new_session()
+        return user.userJSON()
+    
+    @staticmethod
+    def get_user_by_session_key(key: str):
+        if DB.User_DataBase().session_key_available(key):
+            return None
+        
+        return DB.User_DataBase().get_user_by_session(key)
+    
+    @staticmethod
+    def get_user_by_session(session: SessionJSON):
+        return User.get_user_by_session_key(session.session_key)
+        
+    @staticmethod
+    def login(session: SessionJSON) -> UserJSON:
+        user = User.get_user_by_session(session)
+        if user == None:
+            return UserJSON(authenticated=False)
+        
+        return user.userJSON()
+        
+    
 
 
-class RegisterJSON(BaseModel):
-    username: str
-    password: str
-    email: str
-
-
-class KeyJSON(BaseModel):
-    key: str
-
-
-class TrailJSON(BaseModel):
-    key: str
-    trail: list
-
-
-def user_from_key(key):
-    # TODO
-    pass

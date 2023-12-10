@@ -1,33 +1,35 @@
-import osmnx as ox
+import os
+from typing import Any, Dict
+import requests
 
 
-def get_base_graph(start, dest, k=0, incr=0.1, network_type='bike'):
-    graph = None
-    try:
-        graph = ox.graph_from_bbox(
-            max(dest[1], start[1]) + incr * k,
-            min(dest[1], start[1]) - incr * k,
-            max(dest[0], start[0]) + incr * k,
-            min(dest[0], start[0]) - incr * k,
-            network_type=network_type)
-    except Exception as e:
-        pass
 
-    return graph
+routing_server_hostname = os.environ['ROUTING_HOST']
 
 
-def get_graph(start, dest, k=0, incr=0.1, network_type='bike'):
-    graph = get_base_graph(start, dest)
+def get_route_qurey_template() -> Dict[Any, Any]:
+    return {
+        "points": [],
+        "profile": "bike",
+        "elevation": True,
+        "instructions": True,
+        "locale": "ru_RU",
+        "points_encoded": False,
+        "snap_preventions": [
+            "ferry"
+        ],
+        "details": [
+            "road_class",
+            "road_environment",
+            "max_speed",
+            "average_speed"
+        ]
+    }
 
-    while graph is None:
-        graph = get_base_graph(start, dest, k=k, incr=0.1, network_type=network_type)
-        k += 1
+def get_route(start: tuple[float, float], dest: tuple[float, float]) -> Dict[Any, Any]:
+    url = routing_server_hostname + "route?key="
+    body = get_route_qurey_template()
+    body['points'] = [list(start), list(dest)]
+    return requests.post(url, json=body).json()
+    
 
-    return graph, k
-
-
-def get_route(graph, start, dest, k=1):
-    p1 = ox.nearest_nodes(graph, *start)
-    p2 = ox.nearest_nodes(graph, *dest)
-
-    return list(map(lambda a: graph.nodes.data()[a], ox.shortest_path(graph, p1, p2, cpus=4)))
