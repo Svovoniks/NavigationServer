@@ -209,8 +209,8 @@ class User_DataBase(DataBase):
     '''
     def get_user_by_name(self, username: str):
         statement = select(user_table.c.id,
-                           user_table.c.email,
                            user_table.c.username,
+                           user_table.c.email,
                            user_table.c.password_hash).where(user_table.c.username == username)
         r = self.execute(statement).first()
         return User(r[0], r[1], r[2], r[3], None) # type: ignore
